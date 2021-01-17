@@ -1299,6 +1299,62 @@ namespace pwiz.Skyline.Model.DocSettings
             return ImmutableSortedList.FromValues(explicitMods.Where(mod => null != mod.LinkedPeptide)
                 .Select(mod => new KeyValuePair<ModificationSite, LinkedPeptide>(mod.ModificationSite, mod.LinkedPeptide)));
         }
+
+        /// <summary>
+        /// If there are any LinkedPeptides where PeptideLocation is null, replace them with the ModificationSite path
+        /// of the parent.
+        /// </summary>
+        /// <returns></returns>
+        public ExplicitMods ResolveLooplinks()
+        {
+            return ResolveLooplinks(ImmutableList<ModificationSite>.EMPTY);
+        }
+
+        private ExplicitMods ResolveLooplinks(ImmutableList<ModificationSite> location)
+        {
+            var newStaticModifications = new List<ExplicitMod>();
+            foreach (var explicitMod in StaticModifications)
+            {
+                if (explicitMod.LinkedPeptide == null)
+                {
+                    newStaticModifications.Add(explicitMod);
+                    continue;
+                }
+                var linkedPeptide = explicitMod.LinkedPeptide;
+                if (linkedPeptide.Peptide != null)
+                {
+                    if (linkedPeptide.ExplicitMods != null)
+                    {
+                        var newMods = linkedPeptide.ExplicitMods.ResolveLooplinks(
+                            ImmutableList.ValueOf(location.Append(explicitMod.ModificationSite)));
+                        if (!ReferenceEquals(linkedPeptide.ExplicitMods, newMods))
+                        {
+                            linkedPeptide = linkedPeptide.ChangeExplicitMods(newMods);
+                        }
+                    }
+                }
+                else if (linkedPeptide.PeptideLocation == null)
+                {
+                    linkedPeptide = linkedPeptide.ChangePeptideLocation(location);
+                }
+
+                if (Equals(linkedPeptide, explicitMod.LinkedPeptide))
+                {
+                    newStaticModifications.Add(explicitMod);
+                }
+                else
+                {
+                    newStaticModifications.Add(explicitMod.ChangeLinkedPeptide(linkedPeptide));
+                }
+            }
+
+            if (ArrayUtil.ReferencesEqual(StaticModifications, newStaticModifications))
+            {
+                return this;
+            }
+
+            return ChangeStaticModifications(newStaticModifications);
+        }
     }
 
     public sealed class ExplicitMod : Immutable

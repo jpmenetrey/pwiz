@@ -33,6 +33,7 @@ using pwiz.Skyline.Controls.SeqNode;
 using pwiz.Skyline.EditUI;
 using pwiz.Skyline.Model;
 using pwiz.Skyline.Model.AuditLog;
+using pwiz.Skyline.Model.Crosslinking;
 using pwiz.Skyline.Model.DocSettings;
 using pwiz.Skyline.Model.Find;
 using pwiz.Skyline.Model.Irt;
@@ -1390,7 +1391,7 @@ namespace pwiz.Skyline.Menus
                 }
                 else
                 {
-                    using (var dlg = new EditPepModsDlg(DocumentUI.Settings, nodePep, true))
+                    using (var dlg = new EditPepModsDlg(DocumentUI.Settings, nodePep, ImmutableList.Empty<ModificationSite>()))
                     {
                         dlg.Height = Math.Min(dlg.Height, Screen.FromControl(SkylineWindow).WorkingArea.Height);
                         if (dlg.ShowDialog(SkylineWindow) == DialogResult.OK)

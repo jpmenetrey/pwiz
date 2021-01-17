@@ -1270,6 +1270,41 @@ namespace pwiz.Skyline.Model
             get { return TransitionGroups.Any(tg => tg.PrecursorConcentration.HasValue); }
         }
 
+        public Tuple<Peptide, ExplicitMods> FindLinkedPeptide(IList<ModificationSite> crosslinkLocation)
+        {
+            var peptide = Peptide;
+            var explicitMods = ExplicitMods;
+            for (int i = 0; i < crosslinkLocation.Count; i++)
+            {
+                if (explicitMods == null)
+                {
+                    throw new ArgumentException();
+                }
+
+                LinkedPeptide linkedPeptide;
+                if (!explicitMods.Crosslinks.TryGetValue(crosslinkLocation[i], out linkedPeptide))
+                {
+                    throw new ArgumentException();
+                }
+
+                peptide = linkedPeptide.Peptide;
+                explicitMods = linkedPeptide.ExplicitMods;
+            }
+
+            return Tuple.Create(peptide, explicitMods);
+        }
+
+        public PeptideDocNode MakeDocNodeForLinkedPeptide(SrmSettings settings, IList<ModificationSite> modificationSitePath)
+        {
+            if (modificationSitePath.Count == 0)
+            {
+                return this;
+            }
+
+            var tuple = FindLinkedPeptide(modificationSitePath);
+            return new PeptideDocNode(tuple.Item1, settings, tuple.Item2, null, ExplicitRetentionTimeInfo.EMPTY, new TransitionGroupDocNode[0], false);
+        }
+
         private sealed class PeptideResultsCalculator
         {
             private readonly List<PeptideChromInfoListCalculator> _listResultCalcs;

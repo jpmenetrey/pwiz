@@ -17,6 +17,12 @@
  * limitations under the License.
  */
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using pwiz.Common.Collections;
+using pwiz.Common.DataBinding;
+using pwiz.Skyline.Util.Extensions;
 
 namespace pwiz.Skyline.Model.Crosslinking
 {
@@ -71,6 +77,40 @@ namespace pwiz.Skyline.Model.Crosslinking
         public override string ToString()
         {
             return (IndexAa + 1) + @":" + ModName;
+        }
+
+        public static ModificationSite Parse(string value)
+        {
+            int ichColon = value.IndexOf(':');
+            if (ichColon < 0)
+            {
+                throw new FormatException();
+            }
+            return new ModificationSite(int.Parse(value.Substring(0, ichColon)), value.Substring(ichColon + 1));
+        }
+
+        public static string ListToString(IEnumerable<ModificationSite> sites)
+        {
+            if (sites == null)
+            {
+                return null;
+            }
+
+            return string.Join(@",", sites.Select(site => DsvWriter.ToDsvField(',', site.ToString())));
+        }
+
+        public static IEnumerable<ModificationSite> ParseList(string listString)
+        {
+            if (listString == null)
+            {
+                return null;
+            }
+            if (string.IsNullOrEmpty(listString))
+            {
+                return ImmutableList<ModificationSite>.EMPTY;
+            }
+            var fields = new CsvFileReader(new StringReader(listString), false).ReadLine();
+            return fields.Select(ModificationSite.Parse);
         }
     }
 }

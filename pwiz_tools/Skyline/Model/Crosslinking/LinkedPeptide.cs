@@ -33,6 +33,9 @@ namespace pwiz.Skyline.Model.Crosslinking
         public static readonly ImmutableSortedList<ModificationSite, LinkedPeptide> EMPTY_CROSSLINK_STRUCTURE 
             = ImmutableSortedList<ModificationSite, LinkedPeptide>.EMPTY;
 
+        /// <summary>
+        /// Constructs a LinkedPeptide which is attached to a new peptide
+        /// </summary>
         public LinkedPeptide(Peptide peptide, int indexAa, ExplicitMods explicitMods)
         {
             Peptide = peptide;
@@ -40,7 +43,17 @@ namespace pwiz.Skyline.Model.Crosslinking
             ExplicitMods = explicitMods;
         }
 
+        /// <summary>
+        /// Constructs a LinkedPeptide which is loops back to some other peptide which is already attached to the main peptide somehow
+        /// </summary>
+        public LinkedPeptide(IEnumerable<ModificationSite> peptideLocation, int indexAa)
+        {
+            PeptideLocation = ImmutableList.ValueOf(peptideLocation);
+            IndexAa = indexAa;
+        }
+
         public Peptide Peptide { get; private set; }
+        public ImmutableList<ModificationSite> PeptideLocation { get; private set; }
         public int IndexAa { get; private set; }
 
         public int Ordinal
@@ -59,6 +72,11 @@ namespace pwiz.Skyline.Model.Crosslinking
         public LinkedPeptide ChangeExplicitMods(ExplicitMods explicitMods)
         {
             return ChangeProp(ImClone(this), im => im.ExplicitMods = explicitMods);
+        }
+
+        public LinkedPeptide ChangePeptideLocation(IEnumerable<ModificationSite> location)
+        {
+            return ChangeProp(ImClone(this), im => im.PeptideLocation = ImmutableList.ValueOf(location));
         }
 
         public TransitionGroup GetTransitionGroup(IsotopeLabelType labelType, Adduct adduct)

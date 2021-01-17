@@ -944,7 +944,7 @@ namespace pwiz.Skyline.Model.Serialization
                     annotations = ReadTargetAnnotations(reader, AnnotationDef.AnnotationTarget.peptide);
                 if (!isCustomMolecule)
                 {
-                    mods = ReadExplicitMods(reader, peptide);
+                    mods = ReadExplicitMods(reader, peptide)?.ResolveLooplinks();
                     SkipImplicitModsElement(reader);
                     lookupMods = ReadLookupMods(reader, lookupSequence);
                 }
@@ -991,7 +991,7 @@ namespace pwiz.Skyline.Model.Serialization
                 return null;
             reader.Read();
             string sequence = FastaSequence.StripModifications(lookupSequence);
-            var mods = ReadExplicitMods(reader, new Peptide(sequence));
+            var mods = ReadExplicitMods(reader, new Peptide(sequence))?.ResolveLooplinks();
             reader.ReadEndElement();
             return mods;
         }
@@ -1122,10 +1122,15 @@ namespace pwiz.Skyline.Model.Serialization
 
             int indexAa = reader.GetIntAttribute(ATTR.index_aa);
             var sequence = reader.GetAttribute(ATTR.sequence);
+            IEnumerable<ModificationSite> peptideLocation = null;
             Peptide peptide = null;
             if (!string.IsNullOrEmpty(sequence))
             {
                 peptide = new Peptide(sequence);
+            }
+            else
+            {
+                peptideLocation = ModificationSite.ParseList(reader.GetAttribute(ATTR.link_location));
             }
             ExplicitMods explicitMods = null;
             if (reader.IsEmptyElement)
@@ -1138,8 +1143,12 @@ namespace pwiz.Skyline.Model.Serialization
                 explicitMods = ReadExplicitMods(reader, peptide);
                 reader.ReadEndElement();
             }
-            return new LinkedPeptide(peptide, indexAa, explicitMods);
 
+            if (peptide != null)
+            {
+                return new LinkedPeptide(peptide, indexAa, explicitMods);
+            }
+            return new LinkedPeptide(peptideLocation, indexAa);
         }
 
         private Results<PeptideChromInfo> ReadPeptideResults(XmlReader reader)

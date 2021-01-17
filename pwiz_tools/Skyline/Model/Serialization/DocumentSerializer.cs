@@ -173,6 +173,7 @@ namespace pwiz.Skyline.Model.Serialization
             public const string quantitative = "quantitative";
             public const string precursor_concentration = "precursor_concentration";
             public const string attribute_group_id = "attribute_group_id";
+            public const string link_location = "link_location";
 
             // Results
             public const string replicate = "replicate";

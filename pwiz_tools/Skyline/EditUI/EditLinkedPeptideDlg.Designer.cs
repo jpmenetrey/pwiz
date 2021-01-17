@@ -36,7 +36,9 @@
             this.btnEditModifications = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnOk = new System.Windows.Forms.Button();
-            this.cbxLooplink = new System.Windows.Forms.CheckBox();
+            this.radioButtonNewPeptide = new System.Windows.Forms.RadioButton();
+            this.radioButtonLoopLink = new System.Windows.Forms.RadioButton();
+            this.comboLinkedPeptide = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // label1
@@ -80,12 +82,28 @@
             this.btnOk.UseVisualStyleBackColor = true;
             this.btnOk.Click += new System.EventHandler(this.btnOk_Click);
             // 
-            // cbxLooplink
+            // radioButtonNewPeptide
             // 
-            resources.ApplyResources(this.cbxLooplink, "cbxLooplink");
-            this.cbxLooplink.Name = "cbxLooplink";
-            this.cbxLooplink.UseVisualStyleBackColor = true;
-            this.cbxLooplink.CheckedChanged += new System.EventHandler(this.cbxLooplink_CheckedChanged);
+            resources.ApplyResources(this.radioButtonNewPeptide, "radioButtonNewPeptide");
+            this.radioButtonNewPeptide.Name = "radioButtonNewPeptide";
+            this.radioButtonNewPeptide.TabStop = true;
+            this.radioButtonNewPeptide.UseVisualStyleBackColor = true;
+            this.radioButtonNewPeptide.CheckedChanged += new System.EventHandler(this.radio_CheckedChanged);
+            // 
+            // radioButtonLoopLink
+            // 
+            resources.ApplyResources(this.radioButtonLoopLink, "radioButtonLoopLink");
+            this.radioButtonLoopLink.Name = "radioButtonLoopLink";
+            this.radioButtonLoopLink.TabStop = true;
+            this.radioButtonLoopLink.UseVisualStyleBackColor = true;
+            this.radioButtonLoopLink.CheckedChanged += new System.EventHandler(this.radio_CheckedChanged);
+            // 
+            // comboLinkedPeptide
+            // 
+            this.comboLinkedPeptide.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboLinkedPeptide.FormattingEnabled = true;
+            resources.ApplyResources(this.comboLinkedPeptide, "comboLinkedPeptide");
+            this.comboLinkedPeptide.Name = "comboLinkedPeptide";
             // 
             // EditLinkedPeptideDlg
             // 
@@ -93,7 +111,9 @@
             resources.ApplyResources(this, "$this");
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnCancel;
-            this.Controls.Add(this.cbxLooplink);
+            this.Controls.Add(this.comboLinkedPeptide);
+            this.Controls.Add(this.radioButtonLoopLink);
+            this.Controls.Add(this.radioButtonNewPeptide);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnOk);
             this.Controls.Add(this.btnEditModifications);
@@ -120,6 +140,8 @@
         private System.Windows.Forms.Button btnEditModifications;
         private System.Windows.Forms.Button btnCancel;
         private System.Windows.Forms.Button btnOk;
-        private System.Windows.Forms.CheckBox cbxLooplink;
+        private System.Windows.Forms.RadioButton radioButtonNewPeptide;
+        private System.Windows.Forms.RadioButton radioButtonLoopLink;
+        private System.Windows.Forms.ComboBox comboLinkedPeptide;
     }
 }

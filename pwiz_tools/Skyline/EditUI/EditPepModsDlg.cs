@@ -23,6 +23,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using pwiz.Common.Collections;
 using pwiz.Skyline.Controls;
 using pwiz.Skyline.Model;
 using pwiz.Skyline.Model.Crosslinking;
@@ -78,16 +79,16 @@ namespace pwiz.Skyline.EditUI
             return string.Format(Resources.EditPepModsDlg_GetIsotopeLabelText_Isotope__0__, labelType);
         }
 
-        public EditPepModsDlg(SrmSettings settings, PeptideDocNode nodePeptide, bool allowCrosslinks)
+        public EditPepModsDlg(SrmSettings settings, PeptideDocNode rootPeptide, IEnumerable<ModificationSite> modificationSitePath)
         {
             InitializeComponent();
             Icon = Resources.Skyline;
 
             DocSettings = settings;
-            NodePeptide = nodePeptide;
-            ExplicitMods = nodePeptide.ExplicitMods;
-            AllowCrosslinks = allowCrosslinks;
-            if (!AllowCrosslinks)
+            RootPeptide = rootPeptide;
+            ModificationSitePath = ImmutableList.ValueOfOrEmpty(modificationSitePath);
+            NodePeptide = RootPeptide.MakeDocNodeForLinkedPeptide(settings, ModificationSitePath);
+            if (!AllowCopy)
             {
                 cbCreateCopy.Visible = false;
             }
@@ -99,11 +100,11 @@ namespace pwiz.Skyline.EditUI
             List<ComboBox> listComboHeavyLast = null;
             List<Label> listLabelHeavyLast = null;
             Label labelAALast = null;
-            var seq = nodePeptide.Peptide.Target.Sequence;
+            var seq = NodePeptide.Peptide.Target.Sequence;
             var modsDoc = DocSettings.PeptideSettings.Modifications;
-            if (null != nodePeptide.ExplicitMods?.StaticModifications)
+            if (null != NodePeptide.ExplicitMods?.StaticModifications)
             {
-                foreach (var crosslink in nodePeptide.ExplicitMods.Crosslinks)
+                foreach (var crosslink in NodePeptide.ExplicitMods.Crosslinks)
                 {
                     _linkedPeptides[crosslink.Key.IndexAa] = crosslink.Value;
                 }
@@ -258,6 +259,7 @@ namespace pwiz.Skyline.EditUI
         }
 
         private SrmSettings DocSettings { get; set; }
+        private PeptideDocNode RootPeptide { get; set; }
         private PeptideDocNode NodePeptide { get; set; }
 
         /// <summary>
@@ -265,7 +267,12 @@ namespace pwiz.Skyline.EditUI
         /// </summary>
         public ExplicitMods ExplicitMods { get; private set; }
 
-        public bool AllowCrosslinks { get; private set; }
+        public ImmutableList<ModificationSite> ModificationSitePath { get; private set; }
+
+        public bool AllowCopy
+        {
+            get { return (ModificationSitePath?.Count ?? 0) == 0;  }
+        }
 
         /// <summary>
         /// True if a copy of the currently selected peptide should be
@@ -383,7 +390,7 @@ namespace pwiz.Skyline.EditUI
                 }
             }
 
-            if (AllowCrosslinks)
+            if (AllowCopy)
             {
                 listItems.Add(Resources.SettingsListComboDriver_Add);
                 listItems.Add(Resources.SettingsListComboDriver_Edit_current);
@@ -763,9 +770,13 @@ namespace pwiz.Skyline.EditUI
         {
             var explicitMod = GetExplicitMods(_listComboStatic, StaticList)
                 .FirstOrDefault(mod => mod.IndexAA == indexAA);
+            if (explicitMod == null)
+            {
+                return;
+            }
             LinkedPeptide linkedPeptide;
             _linkedPeptides.TryGetValue(indexAA, out linkedPeptide);
-            using (var dlg = new EditLinkedPeptideDlg(DocSettings, NodePeptide, linkedPeptide, explicitMod?.Modification))
+            using (var dlg = new EditLinkedPeptideDlg(DocSettings, NodePeptide, linkedPeptide, explicitMod.Modification, ModificationSitePath.Append(explicitMod.ModificationSite)))
             {
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {

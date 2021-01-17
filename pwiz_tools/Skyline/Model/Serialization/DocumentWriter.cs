@@ -440,6 +440,10 @@ namespace pwiz.Skyline.Model.Serialization
                     WriteExplicitMods(writer, linkedPeptide.Peptide.Sequence, linkedPeptide.ExplicitMods);
                 }
             }
+            else if (linkedPeptide.PeptideLocation != null)
+            {
+                writer.WriteAttributeString(ATTR.link_location, ModificationSite.ListToString(linkedPeptide.PeptideLocation));
+            }
             writer.WriteEndElement();
         }
 

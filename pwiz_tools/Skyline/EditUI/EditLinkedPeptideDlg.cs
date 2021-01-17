@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
+using pwiz.Common.Collections;
 using pwiz.Skyline.Controls;
 using pwiz.Skyline.Model;
 using pwiz.Skyline.Model.Crosslinking;
@@ -34,22 +35,40 @@ namespace pwiz.Skyline.EditUI
         private ExplicitMods _explicitMods;
         private StaticMod _crosslinkMod;
         private string _rememberedPeptideSequence;
+        private List<ImmutableList<ModificationSite>> _looplinkChoices;
 
-        public EditLinkedPeptideDlg(SrmSettings settings, PeptideDocNode parentPeptide, LinkedPeptide linkedPeptide, StaticMod crosslinkMod)
+        public EditLinkedPeptideDlg(SrmSettings settings, PeptideDocNode parentPeptide, LinkedPeptide linkedPeptide, StaticMod crosslinkMod, IEnumerable<ModificationSite> crosslinkLocation)
         {
             InitializeComponent();
             _settings = settings;
             ParentPeptide = parentPeptide;
+            CrosslinkLocation = ImmutableList.ValueOf(crosslinkLocation);
+            var looplinkLocation = linkedPeptide?.PeptideLocation ?? ImmutableList.ValueOf(CrosslinkLocation.Take(CrosslinkLocation.Count - 1));
             _crosslinkMod = crosslinkMod;
-            if (linkedPeptide != null)
+            _looplinkChoices = GetLinkedPeptideChoices(parentPeptide).ToList();
+            foreach (var looplinkChoice in _looplinkChoices)
+            {
+                var peptide = parentPeptide.FindLinkedPeptide(looplinkChoice).Item1;
+                comboLinkedPeptide.Items.Add(peptide.Sequence);
+                if (looplinkChoice.SequenceEqual(looplinkLocation))
+                {
+                    comboLinkedPeptide.SelectedIndex = comboLinkedPeptide.Items.Count - 1;
+                }
+            }
+            if (linkedPeptide == null)
+            {
+                radioButtonNewPeptide.Checked = true;
+            }
+            else
             {
                 if (linkedPeptide.Peptide != null)
                 {
+                    radioButtonNewPeptide.Checked = true;
                     tbxPeptideSequence.Text = linkedPeptide.Peptide.Sequence;
                 }
                 else
                 {
-                    cbxLooplink.Checked = true;
+                    radioButtonLoopLink.Checked = true;
                 }
                 tbxAttachmentOrdinal.Text = (linkedPeptide.IndexAa + 1).ToString();
                 _explicitMods = linkedPeptide.ExplicitMods;
@@ -57,6 +76,7 @@ namespace pwiz.Skyline.EditUI
         }
         public PeptideDocNode ParentPeptide { get; private set; }
         public LinkedPeptide LinkedPeptide { get; private set; }
+        public ImmutableList<ModificationSite> CrosslinkLocation { get; private set; }
 
         public void OkDialog()
         {
@@ -73,13 +93,24 @@ namespace pwiz.Skyline.EditUI
         private bool TryMakeLinkedPeptide(out LinkedPeptide linkedPeptide)
         {
             linkedPeptide = null;
+            ImmutableList<ModificationSite> looplinkLocation;
             Peptide peptide;
-            if (!TryMakePeptide(out peptide))
+            if (radioButtonLoopLink.Checked)
             {
-                return false;
+                looplinkLocation = _looplinkChoices[comboLinkedPeptide.SelectedIndex];
+                peptide = ParentPeptide.FindLinkedPeptide(looplinkLocation).Item1;
+            }
+            else
+            {
+                if (!TryMakePeptide(out peptide))
+                {
+                    return false;
+                }
+
+                looplinkLocation = null;
             }
 
-            string peptideSequence = peptide == null ? ParentPeptide.Peptide.Sequence : peptide.Sequence;
+            string peptideSequence = peptide.Sequence;
             var messageBoxHelper = new MessageBoxHelper(this);
             int aaOrdinal;
             if (!messageBoxHelper.ValidateNumberTextBox(tbxAttachmentOrdinal, 1, peptideSequence.Length, out aaOrdinal))
@@ -99,17 +130,21 @@ namespace pwiz.Skyline.EditUI
                     return false;
                 }
             }
-            linkedPeptide = new LinkedPeptide(peptide, aaOrdinal - 1, MakeExplicitMods(peptide, _explicitMods));
+
+            if (looplinkLocation == null)
+            {
+                linkedPeptide = new LinkedPeptide(peptide, aaOrdinal - 1, MakeExplicitMods(peptide, _explicitMods));
+            }
+            else
+            {
+                linkedPeptide = new LinkedPeptide(looplinkLocation, aaOrdinal - 1);
+            }
             return true;
         }
 
         private bool TryMakePeptide(out Peptide peptide)
         {
             peptide = null;
-            if (cbxLooplink.Checked)
-            {
-                return true;
-            }
             var messageBoxHelper = new MessageBoxHelper(this);
             var peptideSequence = tbxPeptideSequence.Text.Trim();
             if (string.IsNullOrEmpty(peptideSequence))
@@ -168,7 +203,7 @@ namespace pwiz.Skyline.EditUI
 
             var explicitMods = MakeExplicitMods(peptide, _explicitMods);
             var peptideDocNode = new PeptideDocNode(peptide, _settings, explicitMods, null, ExplicitRetentionTimeInfo.EMPTY, new TransitionGroupDocNode[0], false);
-            using (var pepModsDlg = new EditPepModsDlg(_settings, peptideDocNode, false))
+            using (var pepModsDlg = new EditPepModsDlg(_settings, peptideDocNode, CrosslinkLocation))
             {
                 if (pepModsDlg.ShowDialog(this) == DialogResult.OK)
                 {
@@ -199,12 +234,13 @@ namespace pwiz.Skyline.EditUI
             set { tbxAttachmentOrdinal.Text = value.HasValue ? value.ToString() : string.Empty; }
         }
 
-        private void cbxLooplink_CheckedChanged(object sender, EventArgs e)
+        private void radio_CheckedChanged(object sender, EventArgs e)
         {
-            if (cbxLooplink.Checked)
+            if (radioButtonLoopLink.Checked)
             {
                 _rememberedPeptideSequence = tbxPeptideSequence.Text;
                 tbxPeptideSequence.Text = string.Empty;
+                comboLinkedPeptide.Enabled = true;
                 tbxPeptideSequence.Enabled = false;
                 btnEditModifications.Enabled = false;
             }
@@ -215,8 +251,33 @@ namespace pwiz.Skyline.EditUI
                     tbxPeptideSequence.Text = _rememberedPeptideSequence;
                 }
 
+                comboLinkedPeptide.Enabled = false;
                 tbxPeptideSequence.Enabled = true;
                 btnEditModifications.Enabled = true;
+            }
+        }
+
+        public IEnumerable<ImmutableList<ModificationSite>> GetLinkedPeptideChoices(
+            PeptideDocNode peptideDocNode)
+        {
+            var queue = new List<Tuple<ImmutableList<ModificationSite>, LinkedPeptide>>();
+            yield return ImmutableList<ModificationSite>.EMPTY;
+            if (peptideDocNode.ExplicitMods != null)
+            {
+                queue.AddRange(peptideDocNode.ExplicitMods.LinkedCrossslinks.Select(entry=>Tuple.Create(ImmutableList.Singleton(entry.Key), entry.Value)));
+            }
+
+            while (queue.Count > 0)
+            {
+                var location = queue[0].Item1;
+                var linkedPeptide = queue[0].Item2;
+                queue.RemoveAt(0);
+                yield return location;
+                if (linkedPeptide.ExplicitMods != null)
+                {
+                    queue.AddRange(linkedPeptide.ExplicitMods.LinkedCrossslinks.Select(entry =>
+                        Tuple.Create(ImmutableList.ValueOf(location.Append(entry.Key)), entry.Value)));
+                }
             }
         }
     }
