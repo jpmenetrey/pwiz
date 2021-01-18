@@ -290,12 +290,6 @@ namespace pwiz.Skyline.Model
             Modification linkedModification,
             int peptideIndex1, int peptideIndex2)
         {
-            if (peptideIndex1 > peptideIndex2)
-            {
-                var temp = peptideIndex1;
-                peptideIndex1 = peptideIndex2;
-                peptideIndex2 = temp;
-            }
             var strMod = modFormatter(new[] { linkedModification });
             if (strMod.Length == 0)
             {
@@ -304,18 +298,25 @@ namespace pwiz.Skyline.Model
 
 
             var indexes = new List<string>(totalPeptideCount);
-            indexes.AddRange(Enumerable.Repeat(@"*", peptideIndex1));
+            indexes.AddRange(Enumerable.Repeat(@"*", Math.Min(peptideIndex1, peptideIndex2)));
             if (peptideIndex1 == peptideIndex2)
             {
                 indexes.Add((linkedModification.IndexAA + 1) + @"-" + (linkedModification.ExplicitMod.LinkedPeptide.IndexAa + 1));
             }
             else
             {
-                indexes.Add((linkedModification.IndexAA + 1).ToString());
-                indexes.AddRange(Enumerable.Repeat(@"*", peptideIndex2 - peptideIndex1 - 1));
-                indexes.Add((linkedModification.ExplicitMod.LinkedPeptide.IndexAa + 1).ToString());
+                var parts = new List<string>();
+                parts.Add((linkedModification.IndexAA + 1).ToString());
+                parts.AddRange(Enumerable.Repeat(@"*", Math.Abs(peptideIndex2 - peptideIndex1) - 1));
+                parts.Add((linkedModification.ExplicitMod.LinkedPeptide.IndexAa + 1).ToString());
+                if (peptideIndex1 > peptideIndex2)
+                {
+                    parts.Reverse();
+                }
+                indexes.AddRange(parts);
             }
-            indexes.AddRange(Enumerable.Repeat(@"*", totalPeptideCount - peptideIndex2 - 1));
+           
+            indexes.AddRange(Enumerable.Repeat(@"*", totalPeptideCount - Math.Max(peptideIndex1, peptideIndex2) - 1));
             return strMod.Substring(0, strMod.Length - 1) + @"@" + string.Join(@",", indexes) +
                    strMod.Substring(strMod.Length - 1);
         }

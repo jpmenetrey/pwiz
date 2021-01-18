@@ -57,15 +57,15 @@ namespace pwiz.SkylineTestFunctional
             var editLink1 =
                 ShowDialog<EditLinkedPeptideDlg>(() => pepMods1.SetModification(0, IsotopeLabelType.light, "DSS"));
             Assert.AreEqual(1, editLink1.LooplinkChoices.Count());
-            Assert.AreEqual(ImmutableList.Empty<ModificationSite>(), editLink1.LooplinkChoices.First());
+            Assert.AreEqual(ModificationSitePath.ROOT, editLink1.LooplinkChoices.First());
             RunUI(()=>editLink1.PeptideSequence = "KAFFEEKLATSCH");
             var pepMods2 = ShowNestedDlg<EditPepModsDlg>(editLink1.ShowEditModifications);
             Assert.AreEqual(1, pepMods2.RootPeptide.ExplicitMods.Crosslinks.Count);
             var editLink2 = ShowNestedDlg<EditLinkedPeptideDlg>(
                 () => pepMods2.SetModification(11, IsotopeLabelType.light, "disulfide"));
             Assert.AreEqual(2, editLink2.LooplinkChoices.Count());
-            CollectionAssert.Contains(editLink2.LooplinkChoices.ToList(), ImmutableList.Empty<ModificationSite>());
-            CollectionAssert.Contains(editLink2.LooplinkChoices.ToList(), ImmutableList.Singleton(new ModificationSite(0, "DSS")));
+            CollectionAssert.Contains(editLink2.LooplinkChoices.ToList(), ModificationSitePath.ROOT);
+            CollectionAssert.Contains(editLink2.LooplinkChoices.ToList(), new ModificationSite(0, "DSS").ToPath());
             RunUI(()=>editLink2.PeptideSequence = "KINNIKINNICK");
             var pepMods3 = ShowNestedDlg<EditPepModsDlg>(editLink2.ShowEditModifications);
             var editLink3 = ShowNestedDlg<EditLinkedPeptideDlg>(() => pepMods3.SetModification(0, IsotopeLabelType.light, "DSS"));

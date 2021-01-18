@@ -1631,6 +1631,7 @@
           </xs:sequence>
           <xs:attribute name="sequence" type="xs:string" />
           <xs:attribute name="index_aa" type="xs:integer" />
+          <xs:attribute name="link_location" type="xs:string" />
         </xs:complexType>
       </xs:element>
     </xs:sequence>

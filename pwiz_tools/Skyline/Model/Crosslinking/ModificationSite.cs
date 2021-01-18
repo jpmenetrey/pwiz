@@ -91,7 +91,7 @@ namespace pwiz.Skyline.Model.Crosslinking
             {
                 throw new FormatException();
             }
-            return new ModificationSite(int.Parse(value.Substring(0, ichColon)), value.Substring(ichColon + 1));
+            return new ModificationSite(int.Parse(value.Substring(0, ichColon)) - 1, value.Substring(ichColon + 1));
         }
 
         public static string ListToString(IEnumerable<ModificationSite> sites)
