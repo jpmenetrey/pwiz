@@ -1270,39 +1270,39 @@ namespace pwiz.Skyline.Model
             get { return TransitionGroups.Any(tg => tg.PrecursorConcentration.HasValue); }
         }
 
-        public Tuple<Peptide, ExplicitMods> FindLinkedPeptide(IList<ModificationSite> crosslinkLocation)
+        public ExplicitMod FindExplicitMod(ModificationSitePath modificationSitePath)
         {
-            var peptide = Peptide;
+            if (modificationSitePath.IsRoot)
+            {
+                throw new ArgumentException(@"Empty list");
+            }
+
+            ExplicitMod result = null;
             var explicitMods = ExplicitMods;
-            for (int i = 0; i < crosslinkLocation.Count; i++)
+            foreach (var modificationSite in modificationSitePath.Sites)
             {
                 if (explicitMods == null)
                 {
                     throw new ArgumentException();
                 }
 
-                LinkedPeptide linkedPeptide;
-                if (!explicitMods.Crosslinks.TryGetValue(crosslinkLocation[i], out linkedPeptide))
-                {
-                    throw new ArgumentException();
-                }
-
-                peptide = linkedPeptide.Peptide;
-                explicitMods = linkedPeptide.ExplicitMods;
+                result = explicitMods.StaticModifications.FirstOrDefault(mod =>
+                    Equals(modificationSite, mod.ModificationSite));
+                explicitMods = result?.LinkedPeptide?.ExplicitMods;
             }
 
-            return Tuple.Create(peptide, explicitMods);
+            return result;
         }
 
-        public PeptideDocNode MakeDocNodeForLinkedPeptide(SrmSettings settings, IList<ModificationSite> modificationSitePath)
+        public PeptideDocNode MakeDocNodeForLinkedPeptide(SrmSettings settings, ModificationSitePath modificationSitePath)
         {
-            if (modificationSitePath.Count == 0)
+            if (modificationSitePath.IsRoot)
             {
                 return this;
             }
 
-            var tuple = FindLinkedPeptide(modificationSitePath);
-            return new PeptideDocNode(tuple.Item1, settings, tuple.Item2, null, ExplicitRetentionTimeInfo.EMPTY, new TransitionGroupDocNode[0], false);
+            var explicitMod = FindExplicitMod(modificationSitePath);
+            return new PeptideDocNode(explicitMod.LinkedPeptide.Peptide, settings, explicitMod.LinkedPeptide.ExplicitMods, null, ExplicitRetentionTimeInfo.EMPTY, new TransitionGroupDocNode[0], false);
         }
 
         private sealed class PeptideResultsCalculator

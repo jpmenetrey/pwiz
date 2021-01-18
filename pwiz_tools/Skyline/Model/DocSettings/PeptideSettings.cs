@@ -1510,7 +1510,7 @@ namespace pwiz.Skyline.Model.DocSettings
                 // Variable modifications do not count
                 if (nodePep.ExplicitMods.IsVariableStaticMods && typedMods.LabelType.IsLight)
                     continue;
-                var explicitMods = nodePep.ExplicitMods.GetModifications(typedMods.LabelType);
+                var explicitMods = nodePep.ExplicitMods.RecursivelyGetModifications(typedMods.LabelType);
                 if (explicitMods == null)
                     continue;
                 DeclareExplicitMods(mods, explicitStaticMods, explicitMods);

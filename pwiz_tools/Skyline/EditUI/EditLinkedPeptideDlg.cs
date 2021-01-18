@@ -35,26 +35,37 @@ namespace pwiz.Skyline.EditUI
         private ExplicitMods _explicitMods;
         private StaticMod _crosslinkMod;
         private string _rememberedPeptideSequence;
-        private List<ImmutableList<ModificationSite>> _looplinkChoices;
+        private List<ModificationSitePath> _looplinkChoices;
 
-        public EditLinkedPeptideDlg(SrmSettings settings, PeptideDocNode parentPeptide, LinkedPeptide linkedPeptide, StaticMod crosslinkMod, IEnumerable<ModificationSite> crosslinkLocation)
+        public EditLinkedPeptideDlg(SrmSettings settings, PeptideDocNode rootPeptide, ModificationSitePath crosslinkLocation)
         {
             InitializeComponent();
             _settings = settings;
-            ParentPeptide = parentPeptide;
-            CrosslinkLocation = ImmutableList.ValueOf(crosslinkLocation);
-            var looplinkLocation = linkedPeptide?.PeptideLocation ?? ImmutableList.ValueOf(CrosslinkLocation.Take(CrosslinkLocation.Count - 1));
-            _crosslinkMod = crosslinkMod;
-            _looplinkChoices = GetLinkedPeptideChoices(parentPeptide).ToList();
+            RootPeptide = rootPeptide;
+            CrosslinkLocation = crosslinkLocation;
+            var crosslinkModification = rootPeptide.FindExplicitMod(CrosslinkLocation);
+            var looplinkLocation = crosslinkModification.LinkedPeptide?.PeptideLocation ?? CrosslinkLocation.Parent;
+            _crosslinkMod = crosslinkModification.Modification;
+            _looplinkChoices = GetLinkedPeptideChoices(rootPeptide).ToList();
             foreach (var looplinkChoice in _looplinkChoices)
             {
-                var peptide = parentPeptide.FindLinkedPeptide(looplinkChoice).Item1;
+                Peptide peptide;
+                if (looplinkChoice.IsRoot)
+                {
+                    peptide = rootPeptide.Peptide;
+                }
+                else
+                {
+                    peptide = rootPeptide.FindExplicitMod(looplinkChoice).LinkedPeptide.Peptide;
+                }
                 comboLinkedPeptide.Items.Add(peptide.Sequence);
-                if (looplinkChoice.SequenceEqual(looplinkLocation))
+                if (looplinkChoice.Equals(looplinkLocation))
                 {
                     comboLinkedPeptide.SelectedIndex = comboLinkedPeptide.Items.Count - 1;
                 }
             }
+
+            var linkedPeptide = crosslinkModification.LinkedPeptide;
             if (linkedPeptide == null)
             {
                 radioButtonNewPeptide.Checked = true;
@@ -74,9 +85,32 @@ namespace pwiz.Skyline.EditUI
                 _explicitMods = linkedPeptide.ExplicitMods;
             }
         }
-        public PeptideDocNode ParentPeptide { get; private set; }
+        public PeptideDocNode RootPeptide { get; private set; }
         public LinkedPeptide LinkedPeptide { get; private set; }
-        public ImmutableList<ModificationSite> CrosslinkLocation { get; private set; }
+        public ModificationSitePath CrosslinkLocation { get; private set; }
+        public IEnumerable<ModificationSitePath> LooplinkChoices
+        {
+            get { return _looplinkChoices.AsEnumerable(); }
+        }
+
+        public bool IsLooplink
+        {
+            get
+            {
+                return radioButtonLoopLink.Checked;
+            }
+            set
+            {
+                if (value)
+                {
+                    radioButtonLoopLink.Checked = true;
+                }
+                else
+                {
+                    radioButtonNewPeptide.Checked = true;
+                }
+            }
+        }
 
         public void OkDialog()
         {
@@ -93,12 +127,12 @@ namespace pwiz.Skyline.EditUI
         private bool TryMakeLinkedPeptide(out LinkedPeptide linkedPeptide)
         {
             linkedPeptide = null;
-            ImmutableList<ModificationSite> looplinkLocation;
+            ModificationSitePath looplinkLocation;
             Peptide peptide;
             if (radioButtonLoopLink.Checked)
             {
                 looplinkLocation = _looplinkChoices[comboLinkedPeptide.SelectedIndex];
-                peptide = ParentPeptide.FindLinkedPeptide(looplinkLocation).Item1;
+                peptide = RootPeptide.FindExplicitMod(looplinkLocation).LinkedPeptide.Peptide;
             }
             else
             {
@@ -201,9 +235,12 @@ namespace pwiz.Skyline.EditUI
                 return;
             }
 
-            var explicitMods = MakeExplicitMods(peptide, _explicitMods);
-            var peptideDocNode = new PeptideDocNode(peptide, _settings, explicitMods, null, ExplicitRetentionTimeInfo.EMPTY, new TransitionGroupDocNode[0], false);
-            using (var pepModsDlg = new EditPepModsDlg(_settings, peptideDocNode, CrosslinkLocation))
+            var currentExplicitMods = MakeExplicitMods(peptide, _explicitMods);
+            var newExplicitMod = new ExplicitMod(CrosslinkLocation.Sites.Last().IndexAa, _crosslinkMod).ChangeLinkedPeptide(new LinkedPeptide(peptide, -1, currentExplicitMods));
+            var currentRootPeptide = RootPeptide.ChangeExplicitMods(
+                RootPeptide.ExplicitMods.ReplaceModAt(CrosslinkLocation, newExplicitMod));
+
+            using (var pepModsDlg = new EditPepModsDlg(_settings, currentRootPeptide, CrosslinkLocation))
             {
                 if (pepModsDlg.ShowDialog(this) == DialogResult.OK)
                 {
@@ -257,14 +294,14 @@ namespace pwiz.Skyline.EditUI
             }
         }
 
-        public IEnumerable<ImmutableList<ModificationSite>> GetLinkedPeptideChoices(
+        public IEnumerable<ModificationSitePath> GetLinkedPeptideChoices(
             PeptideDocNode peptideDocNode)
         {
-            var queue = new List<Tuple<ImmutableList<ModificationSite>, LinkedPeptide>>();
-            yield return ImmutableList<ModificationSite>.EMPTY;
+            var queue = new List<Tuple<ModificationSitePath, LinkedPeptide>>();
+            yield return ModificationSitePath.ROOT;
             if (peptideDocNode.ExplicitMods != null)
             {
-                queue.AddRange(peptideDocNode.ExplicitMods.LinkedCrossslinks.Select(entry=>Tuple.Create(ImmutableList.Singleton(entry.Key), entry.Value)));
+                queue.AddRange(peptideDocNode.ExplicitMods.LinkedCrossslinks.Select(entry=>Tuple.Create(ModificationSitePath.Singleton(entry.Key), entry.Value)));
             }
 
             while (queue.Count > 0)
@@ -276,9 +313,14 @@ namespace pwiz.Skyline.EditUI
                 if (linkedPeptide.ExplicitMods != null)
                 {
                     queue.AddRange(linkedPeptide.ExplicitMods.LinkedCrossslinks.Select(entry =>
-                        Tuple.Create(ImmutableList.ValueOf(location.Append(entry.Key)), entry.Value)));
+                        Tuple.Create(location.Append(entry.Key), entry.Value)));
                 }
             }
+        }
+
+        public void ChooseLooplinkPeptide(ModificationSitePath modificationSitePath)
+        {
+            comboLinkedPeptide.SelectedIndex = _looplinkChoices.IndexOf(modificationSitePath);
         }
     }
 }

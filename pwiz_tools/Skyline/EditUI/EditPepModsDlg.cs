@@ -79,14 +79,14 @@ namespace pwiz.Skyline.EditUI
             return string.Format(Resources.EditPepModsDlg_GetIsotopeLabelText_Isotope__0__, labelType);
         }
 
-        public EditPepModsDlg(SrmSettings settings, PeptideDocNode rootPeptide, IEnumerable<ModificationSite> modificationSitePath)
+        public EditPepModsDlg(SrmSettings settings, PeptideDocNode rootPeptide, ModificationSitePath modificationSitePath)
         {
             InitializeComponent();
             Icon = Resources.Skyline;
 
             DocSettings = settings;
             RootPeptide = rootPeptide;
-            ModificationSitePath = ImmutableList.ValueOfOrEmpty(modificationSitePath);
+            ModificationSitePath = modificationSitePath;
             NodePeptide = RootPeptide.MakeDocNodeForLinkedPeptide(settings, ModificationSitePath);
             if (!AllowCopy)
             {
@@ -259,7 +259,7 @@ namespace pwiz.Skyline.EditUI
         }
 
         private SrmSettings DocSettings { get; set; }
-        private PeptideDocNode RootPeptide { get; set; }
+        public PeptideDocNode RootPeptide { get; private set; }
         private PeptideDocNode NodePeptide { get; set; }
 
         /// <summary>
@@ -267,11 +267,11 @@ namespace pwiz.Skyline.EditUI
         /// </summary>
         public ExplicitMods ExplicitMods { get; private set; }
 
-        public ImmutableList<ModificationSite> ModificationSitePath { get; private set; }
+        public ModificationSitePath ModificationSitePath { get; private set; }
 
         public bool AllowCopy
         {
-            get { return (ModificationSitePath?.Count ?? 0) == 0;  }
+            get { return ModificationSitePath == null || ModificationSitePath.IsRoot; }
         }
 
         /// <summary>
@@ -768,15 +768,17 @@ namespace pwiz.Skyline.EditUI
 
         public void EditLinkedPeptide(int indexAA)
         {
-            var explicitMod = GetExplicitMods(_listComboStatic, StaticList)
-                .FirstOrDefault(mod => mod.IndexAA == indexAA);
+            var currentExplicitMods = GetExplicitMods(_listComboStatic, StaticList);
+            var explicitMod = currentExplicitMods?.FirstOrDefault(mod => mod.IndexAA == indexAA);
             if (explicitMod == null)
             {
                 return;
             }
+
+            var currentRootPeptide = ReplaceExplicitMods(RootPeptide, ModificationSitePath, new ExplicitMods(NodePeptide.Peptide, currentExplicitMods, null));
             LinkedPeptide linkedPeptide;
             _linkedPeptides.TryGetValue(indexAA, out linkedPeptide);
-            using (var dlg = new EditLinkedPeptideDlg(DocSettings, NodePeptide, linkedPeptide, explicitMod.Modification, ModificationSitePath.Append(explicitMod.ModificationSite)))
+            using (var dlg = new EditLinkedPeptideDlg(DocSettings, currentRootPeptide, ModificationSitePath.Append(explicitMod.ModificationSite)))
             {
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
@@ -784,6 +786,18 @@ namespace pwiz.Skyline.EditUI
 
                 }
             }
+        }
+
+        private PeptideDocNode ReplaceExplicitMods(PeptideDocNode peptideDocNode,
+            ModificationSitePath modificationSitePath, ExplicitMods explicitMods)
+        {
+            if (modificationSitePath.IsRoot)
+            {
+                return peptideDocNode.ChangeExplicitMods(explicitMods);
+            }
+
+            return peptideDocNode.ChangeExplicitMods(
+                peptideDocNode.ExplicitMods.ReplaceExplicitModsAt(modificationSitePath, explicitMods));
         }
 
         private void UpdateEditLinkButton(int indexAA)
@@ -844,7 +858,19 @@ namespace pwiz.Skyline.EditUI
 
             if (!string.IsNullOrEmpty(staticMod.AAs))
             {
-                string sequence = linkedPeptide.PeptideSequence ?? NodePeptide.Peptide.Sequence;
+                string sequence;
+                if (linkedPeptide.Peptide != null)
+                {
+                    sequence = linkedPeptide.Peptide.Sequence;
+                }
+                else
+                {
+                    sequence = RootPeptide.FindExplicitMod(linkedPeptide.PeptideLocation)?.LinkedPeptide?.PeptideSequence;
+                }
+                if (sequence == null || sequence.Length <= linkedPeptide.IndexAa)
+                {
+                    return false;
+                }
                 char aa = sequence[linkedPeptide.IndexAa];
                 if (!staticMod.AAs.Contains(aa))
                 {

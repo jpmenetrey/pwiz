@@ -442,7 +442,7 @@ namespace pwiz.Skyline.Model.Serialization
             }
             else if (linkedPeptide.PeptideLocation != null)
             {
-                writer.WriteAttributeString(ATTR.link_location, ModificationSite.ListToString(linkedPeptide.PeptideLocation));
+                writer.WriteAttributeString(ATTR.link_location, linkedPeptide.PeptideLocation.ToString());
             }
             writer.WriteEndElement();
         }

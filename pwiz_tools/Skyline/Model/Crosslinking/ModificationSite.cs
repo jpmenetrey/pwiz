@@ -79,6 +79,11 @@ namespace pwiz.Skyline.Model.Crosslinking
             return (IndexAa + 1) + @":" + ModName;
         }
 
+        public ModificationSitePath ToPath()
+        {
+            return new ModificationSitePath(ImmutableList.Singleton(this));
+        }
+
         public static ModificationSite Parse(string value)
         {
             int ichColon = value.IndexOf(':');
@@ -111,6 +116,87 @@ namespace pwiz.Skyline.Model.Crosslinking
             }
             var fields = new CsvFileReader(new StringReader(listString), false).ReadLine();
             return fields.Select(ModificationSite.Parse);
+        }
+    }
+
+    public class ModificationSitePath
+    {
+        public static readonly ModificationSitePath ROOT = new ModificationSitePath(ImmutableList.Empty<ModificationSite>());
+        public ModificationSitePath(IEnumerable<ModificationSite> modificationSites)
+        {
+            Sites = ImmutableList.ValueOf(modificationSites);
+        }
+
+        public ImmutableList<ModificationSite> Sites { get; private set; }
+        public bool IsRoot
+        {
+            get { return Sites.Count == 0; }
+        }
+
+        public ModificationSitePath Parent
+        {
+            get
+            {
+                return IsRoot ? null : new ModificationSitePath(Sites.Take(Sites.Count - 1));
+            }
+        }
+
+        public ModificationSitePath SkipFirst()
+        {
+            return IsRoot ? null : new ModificationSitePath(Sites.Skip(1));
+        }
+
+        public override string ToString()
+        {
+            return string.Join(@",", Sites.Select(site => DsvWriter.ToDsvField(',', site.ToString())));
+        }
+
+        public ModificationSitePath Prepend(ModificationSite site)
+        {
+            return new ModificationSitePath(Sites.Prepend(site));
+        }
+
+        public ModificationSitePath Append(ModificationSite site)
+        {
+            return new ModificationSitePath(Sites.Append(site));
+        }
+
+        public static ModificationSitePath Parse(string listString)
+        {
+            if (listString == null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(listString))
+            {
+                return ROOT;
+            }
+            var fields = new CsvFileReader(new StringReader(listString), false).ReadLine();
+            return new ModificationSitePath(fields.Select(ModificationSite.Parse));
+        }
+
+        protected bool Equals(ModificationSitePath other)
+        {
+            return Sites.Equals(other.Sites);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((ModificationSitePath) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return Sites.GetHashCode();
+        }
+
+        public static ModificationSitePath Singleton(ModificationSite site)
+        {
+            return new ModificationSitePath(ImmutableList.Singleton(site));
         }
     }
 }

@@ -1081,6 +1081,36 @@ namespace pwiz.Skyline.Model.DocSettings
             return (index != -1 ? _modifications[index].Modifications : null);
         }
 
+        public IEnumerable<ExplicitMod> RecursivelyGetModifications(IsotopeLabelType labelType)
+        {
+            IEnumerable<ExplicitMod> result = GetModifications(labelType) ?? Enumerable.Empty<ExplicitMod>();
+            foreach (var entry in LinkedCrossslinks)
+            {
+                var explicitMods = entry.Value.ExplicitMods;
+                if (explicitMods != null)
+                {
+                    result = result.Concat(explicitMods.RecursivelyGetModifications(labelType));
+                }
+            }
+
+            return result;
+        }
+
+        public IEnumerable<ModificationSitePath> EnumerateCrosslinkedPeptideLocations()
+        {
+            foreach (var entry in LinkedCrossslinks)
+            {
+                yield return ModificationSitePath.Singleton(entry.Key);
+                if (entry.Value.ExplicitMods != null)
+                {
+                    foreach (var child in entry.Value.ExplicitMods.EnumerateCrosslinkedPeptideLocations())
+                    {
+                        yield return child.Prepend(entry.Key);
+                    }
+                }
+            }
+        }
+
         public IList<ExplicitMod> GetStaticBaseMods(IsotopeLabelType labelType)
         {
             int index = GetModIndex(labelType);
@@ -1242,7 +1272,11 @@ namespace pwiz.Skyline.Model.DocSettings
             if (index != 0)
                 typedMods = typedMods.AddModMasses(modifications[0]);
             modifications[index] = typedMods;
-            return ChangeProp(ImClone(this), im => im._modifications = MakeReadOnly(modifications));
+            return ChangeProp(ImClone(this), im =>
+            {
+                im._modifications = MakeReadOnly(modifications);
+                im.Crosslinks = GetLinkedPeptides(im.StaticModifications);
+            });
         }
 
         /// <summary>
@@ -1307,10 +1341,10 @@ namespace pwiz.Skyline.Model.DocSettings
         /// <returns></returns>
         public ExplicitMods ResolveLooplinks()
         {
-            return ResolveLooplinks(ImmutableList<ModificationSite>.EMPTY);
+            return ResolveLooplinks(ModificationSitePath.ROOT);
         }
 
-        private ExplicitMods ResolveLooplinks(ImmutableList<ModificationSite> location)
+        private ExplicitMods ResolveLooplinks(ModificationSitePath location)
         {
             var newStaticModifications = new List<ExplicitMod>();
             foreach (var explicitMod in StaticModifications)
@@ -1326,7 +1360,7 @@ namespace pwiz.Skyline.Model.DocSettings
                     if (linkedPeptide.ExplicitMods != null)
                     {
                         var newMods = linkedPeptide.ExplicitMods.ResolveLooplinks(
-                            ImmutableList.ValueOf(location.Append(explicitMod.ModificationSite)));
+                            location.Append(explicitMod.ModificationSite));
                         if (!ReferenceEquals(linkedPeptide.ExplicitMods, newMods))
                         {
                             linkedPeptide = linkedPeptide.ChangeExplicitMods(newMods);
@@ -1355,6 +1389,92 @@ namespace pwiz.Skyline.Model.DocSettings
 
             return ChangeStaticModifications(newStaticModifications);
         }
+
+        public ExplicitMods ReplaceExplicitModsAt(ModificationSitePath modificationSitePath,
+            ExplicitMods newExplicitMods)
+        {
+            if (modificationSitePath.IsRoot)
+            {
+                return newExplicitMods;
+            }
+
+            var newStaticModifications = new List<ExplicitMod>();
+            foreach (var explicitMod in StaticModifications)
+            {
+                if (!Equals(explicitMod.ModificationSite, modificationSitePath.Sites[0]))
+                {
+                    newStaticModifications.Add(explicitMod);
+                    continue;
+                }
+
+                if (explicitMod.LinkedPeptide?.Peptide == null)
+                {
+                    throw new ArgumentException(string.Format(@"No crosslink at {0}", modificationSitePath));
+                }
+
+                LinkedPeptide newLinkedPeptide;
+                if (modificationSitePath.Sites.Count > 1)
+                {
+                    if (explicitMod.LinkedPeptide.ExplicitMods == null)
+                    {
+                        throw new ArgumentException(string.Format(@"No crosslink at {0}", modificationSitePath));
+                    }
+
+                    newLinkedPeptide = explicitMod.LinkedPeptide.ChangeExplicitMods(
+                        explicitMod.LinkedPeptide.ExplicitMods.ReplaceExplicitModsAt(
+                            modificationSitePath.SkipFirst(), newExplicitMods));
+                }
+                else
+                {
+                    newLinkedPeptide = explicitMod.LinkedPeptide.ChangeExplicitMods(newExplicitMods);
+                }
+                newStaticModifications.Add(explicitMod.ChangeLinkedPeptide(newLinkedPeptide));
+            }
+
+            return ChangeStaticModifications(newStaticModifications);
+        }
+
+        public ExplicitMods ReplaceModAt(ModificationSitePath modificationSitePath, ExplicitMod newExplicitMod)
+        {
+            var newStaticModifications = new List<ExplicitMod>();
+            bool found = false;
+            foreach (var explicitMod in StaticModifications)
+            {
+                if (!Equals(explicitMod.ModificationSite, modificationSitePath.Sites[0]))
+                {
+                    newStaticModifications.Add(explicitMod);
+                    continue;
+                }
+
+                found = true;
+                if (modificationSitePath.Sites.Count == 1)
+                {
+                    newStaticModifications.Add(newExplicitMod);
+                    continue;
+                }
+                if (explicitMod.LinkedPeptide?.Peptide == null || explicitMod.LinkedPeptide?.ExplicitMods == null)
+                {
+                    throw new ArgumentException(string.Format(@"No crosslink at {0}", modificationSitePath));
+                }
+
+                var newLinkedPeptide = explicitMod.LinkedPeptide.ChangeExplicitMods(
+                    explicitMod.LinkedPeptide.ExplicitMods.ReplaceModAt(
+                        modificationSitePath.SkipFirst(), newExplicitMod));
+                newStaticModifications.Add(explicitMod.ChangeLinkedPeptide(newLinkedPeptide));
+            }
+
+            if (!found)
+            {
+                if (modificationSitePath.Sites.Count != 1)
+                {
+                    throw new ArgumentException(string.Format(@"No crosslink at {0}", modificationSitePath));
+                }
+                newStaticModifications.Add(newExplicitMod);
+            }
+
+            return ChangeStaticModifications(newStaticModifications);
+        }
+
     }
 
     public sealed class ExplicitMod : Immutable

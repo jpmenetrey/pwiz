@@ -1391,7 +1391,7 @@ namespace pwiz.Skyline.Menus
                 }
                 else
                 {
-                    using (var dlg = new EditPepModsDlg(DocumentUI.Settings, nodePep, ImmutableList.Empty<ModificationSite>()))
+                    using (var dlg = new EditPepModsDlg(DocumentUI.Settings, nodePep, ModificationSitePath.ROOT))
                     {
                         dlg.Height = Math.Min(dlg.Height, Screen.FromControl(SkylineWindow).WorkingArea.Height);
                         if (dlg.ShowDialog(SkylineWindow) == DialogResult.OK)

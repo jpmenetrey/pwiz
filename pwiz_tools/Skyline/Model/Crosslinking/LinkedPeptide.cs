@@ -46,14 +46,14 @@ namespace pwiz.Skyline.Model.Crosslinking
         /// <summary>
         /// Constructs a LinkedPeptide which is loops back to some other peptide which is already attached to the main peptide somehow
         /// </summary>
-        public LinkedPeptide(IEnumerable<ModificationSite> peptideLocation, int indexAa)
+        public LinkedPeptide(ModificationSitePath peptideLocation, int indexAa)
         {
-            PeptideLocation = ImmutableList.ValueOf(peptideLocation);
+            PeptideLocation = peptideLocation;
             IndexAa = indexAa;
         }
 
         public Peptide Peptide { get; private set; }
-        public ImmutableList<ModificationSite> PeptideLocation { get; private set; }
+        public ModificationSitePath PeptideLocation { get; private set; }
         public int IndexAa { get; private set; }
 
         public int Ordinal
@@ -74,9 +74,9 @@ namespace pwiz.Skyline.Model.Crosslinking
             return ChangeProp(ImClone(this), im => im.ExplicitMods = explicitMods);
         }
 
-        public LinkedPeptide ChangePeptideLocation(IEnumerable<ModificationSite> location)
+        public LinkedPeptide ChangePeptideLocation(ModificationSitePath location)
         {
-            return ChangeProp(ImClone(this), im => im.PeptideLocation = ImmutableList.ValueOf(location));
+            return ChangeProp(ImClone(this), im => im.PeptideLocation = location);
         }
 
         public TransitionGroup GetTransitionGroup(IsotopeLabelType labelType, Adduct adduct)
@@ -170,7 +170,8 @@ namespace pwiz.Skyline.Model.Crosslinking
         protected bool Equals(LinkedPeptide other)
         {
             return Equals(Peptide, other.Peptide) && IndexAa == other.IndexAa &&
-                   Equals(ExplicitMods, other.ExplicitMods);
+                   Equals(ExplicitMods, other.ExplicitMods) &&
+                   Equals(PeptideLocation, other.PeptideLocation);
         }
 
         public override bool Equals(object obj)
@@ -188,6 +189,7 @@ namespace pwiz.Skyline.Model.Crosslinking
                 var hashCode = (Peptide != null ? Peptide.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ IndexAa;
                 hashCode = (hashCode * 397) ^ (ExplicitMods != null ? ExplicitMods.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (PeptideLocation != null ? PeptideLocation.GetHashCode() : 0);
                 return hashCode;
             }
         }

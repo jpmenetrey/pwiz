@@ -1122,7 +1122,7 @@ namespace pwiz.Skyline.Model.Serialization
 
             int indexAa = reader.GetIntAttribute(ATTR.index_aa);
             var sequence = reader.GetAttribute(ATTR.sequence);
-            IEnumerable<ModificationSite> peptideLocation = null;
+            ModificationSitePath peptideLocation = null;
             Peptide peptide = null;
             if (!string.IsNullOrEmpty(sequence))
             {
@@ -1130,7 +1130,7 @@ namespace pwiz.Skyline.Model.Serialization
             }
             else
             {
-                peptideLocation = ModificationSite.ParseList(reader.GetAttribute(ATTR.link_location));
+                peptideLocation = ModificationSitePath.Parse(reader.GetAttribute(ATTR.link_location));
             }
             ExplicitMods explicitMods = null;
             if (reader.IsEmptyElement)
