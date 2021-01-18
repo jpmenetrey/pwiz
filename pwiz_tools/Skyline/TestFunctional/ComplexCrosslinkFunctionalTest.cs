@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using pwiz.Common.Collections;
 using pwiz.Skyline.EditUI;
 using pwiz.Skyline.Model;
 using pwiz.Skyline.Model.Crosslinking;
@@ -15,10 +10,10 @@ using pwiz.SkylineTestUtil;
 namespace pwiz.SkylineTestFunctional
 {
     [TestClass]
-    public class ComplexCrosslinkTest : AbstractFunctionalTest
+    public class ComplexCrosslinkFunctionalTest : AbstractFunctionalTest
     {
         [TestMethod]
-        public void TestComplexCrosslinks()
+        public void TestComplexCrosslinkFunctionality()
         {
             RunFunctionalTest();
         }

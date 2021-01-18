@@ -234,12 +234,14 @@ namespace pwiz.Skyline.Model
             int totalPeptides = linkedPeptideLocations.Count;
             List<Tuple<ModificationSitePath, Modification>> linkedModifications = new List<Tuple<ModificationSitePath, Modification>>();
             StringBuilder peptideSequences = new StringBuilder();
-            StringBuilder crosslinks = new StringBuilder();
+            var crosslinks = new List<Tuple<ModificationSitePath, string>>();
             foreach (var mod in GetModifications().Where(mod => null != mod.ExplicitMod.LinkedPeptide))
             {
                 if (mod.LinkedPeptideSequence == null)
                 {
-                    crosslinks.Append(FormatCrosslinkMod(modFormatter, totalPeptides, mod, 0, linkedPeptideLocations[mod.ExplicitMod.ModificationSite.ToPath()]));
+                    crosslinks.Add(Tuple.Create(mod.ExplicitMod.ModificationSite.ToPath(),
+                        FormatCrosslinkMod(modFormatter, totalPeptides, mod, 0,
+                            linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation])));
                 }
                 else
                 {
@@ -262,7 +264,7 @@ namespace pwiz.Skyline.Model
                     {
                         if (mod.LinkedPeptideSequence == null)
                         {
-                            crosslinks.Append(FormatCrosslinkMod(modFormatter, totalPeptides, mod, peptideIndex, linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation]));
+                            crosslinks.Add(Tuple.Create(modificationSitePath.Append(mod.ExplicitMod.ModificationSite), FormatCrosslinkMod(modFormatter, totalPeptides, mod, peptideIndex, linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation])));
                         }
                         else
                         {
@@ -273,16 +275,19 @@ namespace pwiz.Skyline.Model
 
                 peptideSequences.Append(@"-");
                 peptideSequences.Append(linkedModification.LinkedPeptideSequence.FormatSelf(modFormatter));
-                crosslinks.Append(FormatCrosslinkMod(modFormatter, totalPeptides, linkedModification,
-                    linkedPeptideLocations[linkedModTuple.Item1], peptideIndex));
+                crosslinks.Add(
+                    Tuple.Create(modificationSitePath, FormatCrosslinkMod(modFormatter, totalPeptides,
+                        linkedModification,
+                        linkedPeptideLocations[linkedModTuple.Item1], peptideIndex)));
             }
-            if (crosslinks.Length == 0)
+            if (crosslinks.Count == 0)
             {
                 Assume.AreEqual(0, peptideSequences.Length);
                 return string.Empty;
             }
 
-            return peptideSequences + @"-" + crosslinks;
+            crosslinks.Sort();
+            return peptideSequences + @"-" + string.Join(string.Empty, crosslinks.Select(tuple=>tuple.Item2));
         }
 
         private string FormatCrosslinkMod(Func<IEnumerable<Modification>, string> modFormatter, 

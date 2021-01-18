@@ -368,5 +368,42 @@ namespace pwiz.SkylineTest
             Assert.AreEqual(1, peptideDocNode.ExplicitMods.Crosslinks.Count);
             Assert.AreEqual(null, peptideDocNode.ExplicitMods.Crosslinks[0].Value.Peptide);
         }
+
+        [TestMethod]
+        public void TestCyclicCrosslinks()
+        {
+            var disulfide = new StaticMod("disulfide", "C", null, "-H2").ChangeCrosslinkerSettings(CrosslinkerSettings.EMPTY);
+            var dss = new StaticMod("DSS", "K", null, "C8H10O2").ChangeCrosslinkerSettings(CrosslinkerSettings.EMPTY);
+            var srmSettings = SrmSettingsList.GetDefault();
+            srmSettings = srmSettings.ChangePeptideSettings(
+                srmSettings.PeptideSettings.ChangeModifications(srmSettings.PeptideSettings.Modifications
+                    .ChangeStaticModifications(new[]{disulfide, dss})));
+            var sitePath2 = new ModificationSite(0, dss.Name).ToPath();
+            var sitePath3 = sitePath2.Append(new ModificationSite(10, disulfide.Name));
+
+            var peptide3 = new Peptide("KINNIKINNICK");
+            var explicitMods3 = new ExplicitMods(peptide3, new[]{
+                new ExplicitMod(0, dss).ChangeLinkedPeptide(new LinkedPeptide(ModificationSitePath.ROOT, 5)),
+                new ExplicitMod(5, dss).ChangeLinkedPeptide(new LinkedPeptide(sitePath3, 11)), 
+            }, null);
+            var peptide2 = new Peptide("KAFFEEKLATSCH");
+            var explicitMods2 = new ExplicitMods(peptide2, new[]
+            {
+                new ExplicitMod(6, dss).ChangeLinkedPeptide(new LinkedPeptide(ModificationSitePath.ROOT, 4)), 
+                new ExplicitMod(10, disulfide).ChangeLinkedPeptide(new LinkedPeptide(peptide3, 10, explicitMods3)), 
+            }, null);
+            var peptide1 = new Peptide("KNICKKNACK");
+            var explicitMods1 = new ExplicitMods(peptide1, new[]
+            {
+                new ExplicitMod(0, dss).ChangeLinkedPeptide(new LinkedPeptide(peptide2, 0, explicitMods2)),
+                new ExplicitMod(3, disulfide).ChangeLinkedPeptide(new LinkedPeptide(ModificationSitePath.ROOT, 8)), 
+            }, null);
+            var modifiedSequence = ModifiedSequence.GetModifiedSequence(srmSettings, peptide1.Sequence, explicitMods1,
+                IsotopeLabelType.light);
+            string modifiedSequenceText = modifiedSequence.FullNames;
+            Assert.AreEqual(
+                "KNICKKNACK-KAFFEEKLATSCH-KINNIKINNICK-[DSS@1,1,*][DSS@5,7,*][disulfide@*,11,11][DSS@6,*,1][DSS@*,*,6-12][disulfide@4-9,*,*]",
+                modifiedSequenceText);
+        }
     }
 }

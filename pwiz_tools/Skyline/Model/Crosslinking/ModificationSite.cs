@@ -119,7 +119,7 @@ namespace pwiz.Skyline.Model.Crosslinking
         }
     }
 
-    public class ModificationSitePath
+    public class ModificationSitePath : IComparable<ModificationSitePath>, IComparable
     {
         public static readonly ModificationSitePath ROOT = new ModificationSitePath(ImmutableList.Empty<ModificationSite>());
         public ModificationSitePath(IEnumerable<ModificationSite> modificationSites)
@@ -197,6 +197,29 @@ namespace pwiz.Skyline.Model.Crosslinking
         public static ModificationSitePath Singleton(ModificationSite site)
         {
             return new ModificationSitePath(ImmutableList.Singleton(site));
+        }
+
+        public int CompareTo(ModificationSitePath other)
+        {
+            if (other == null)
+            {
+                return 1;
+            }
+            for (int i = 0; i < Math.Min(Sites.Count, other.Sites.Count); i++)
+            {
+                int result = Sites[i].CompareTo(other.Sites[i]);
+                if (result != 0)
+                {
+                    return result;
+                }
+            }
+
+            return Sites.Count.CompareTo(other.Sites.Count);
+        }
+
+        public int CompareTo(object obj)
+        {
+            return CompareTo((ModificationSitePath) obj);
         }
     }
 }
