@@ -28,6 +28,7 @@ using pwiz.Common.Collections;
 using pwiz.Common.SystemUtil;
 using pwiz.Skyline.Model.Crosslinking;
 using pwiz.Skyline.Model.DocSettings;
+using pwiz.Skyline.Model.Lib;
 using pwiz.Skyline.Util;
 
 namespace pwiz.Skyline.Model
@@ -234,14 +235,13 @@ namespace pwiz.Skyline.Model
             int totalPeptides = linkedPeptideLocations.Count;
             List<Tuple<ModificationSitePath, Modification>> linkedModifications = new List<Tuple<ModificationSitePath, Modification>>();
             StringBuilder peptideSequences = new StringBuilder();
-            var crosslinks = new List<Tuple<ModificationSitePath, string>>();
+            var crosslinks = new List<CrosslinkLibraryKey.Crosslink>();
             foreach (var mod in GetModifications().Where(mod => null != mod.ExplicitMod.LinkedPeptide))
             {
                 if (mod.LinkedPeptideSequence == null)
                 {
-                    crosslinks.Add(Tuple.Create(mod.ExplicitMod.ModificationSite.ToPath(),
-                        FormatCrosslinkMod(modFormatter, totalPeptides, mod, 0,
-                            linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation])));
+                    crosslinks.Add(MakeCrosslink(modFormatter, totalPeptides, mod, 0,
+                        linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation]));
                 }
                 else
                 {
@@ -264,7 +264,7 @@ namespace pwiz.Skyline.Model
                     {
                         if (mod.LinkedPeptideSequence == null)
                         {
-                            crosslinks.Add(Tuple.Create(modificationSitePath.Append(mod.ExplicitMod.ModificationSite), FormatCrosslinkMod(modFormatter, totalPeptides, mod, peptideIndex, linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation])));
+                            crosslinks.Add(MakeCrosslink(modFormatter, totalPeptides, mod, peptideIndex, linkedPeptideLocations[mod.ExplicitMod.LinkedPeptide.PeptideLocation]));
                         }
                         else
                         {
@@ -275,10 +275,9 @@ namespace pwiz.Skyline.Model
 
                 peptideSequences.Append(@"-");
                 peptideSequences.Append(linkedModification.LinkedPeptideSequence.FormatSelf(modFormatter));
-                crosslinks.Add(
-                    Tuple.Create(modificationSitePath, FormatCrosslinkMod(modFormatter, totalPeptides,
+                crosslinks.Add(MakeCrosslink(modFormatter, totalPeptides,
                         linkedModification,
-                        linkedPeptideLocations[linkedModTuple.Item1], peptideIndex)));
+                        linkedPeptideLocations[linkedModTuple.Item1], peptideIndex));
             }
             if (crosslinks.Count == 0)
             {
@@ -286,11 +285,11 @@ namespace pwiz.Skyline.Model
                 return string.Empty;
             }
 
-            crosslinks.Sort();
-            return peptideSequences + @"-" + string.Join(string.Empty, crosslinks.Select(tuple=>tuple.Item2));
+            crosslinks.Sort(Comparer<CrosslinkLibraryKey.Crosslink>.Create(CompareCrosslinks));
+            return peptideSequences + @"-" + string.Join(string.Empty, crosslinks);
         }
 
-        private string FormatCrosslinkMod(Func<IEnumerable<Modification>, string> modFormatter, 
+        private CrosslinkLibraryKey.Crosslink MakeCrosslink(Func<IEnumerable<Modification>, string> modFormatter, 
             int totalPeptideCount,
             Modification linkedModification,
             int peptideIndex1, int peptideIndex2)
@@ -301,29 +300,48 @@ namespace pwiz.Skyline.Model
                 strMod = @"[]";
             }
 
+            var indexLookup = new[]
+            {
+                Tuple.Create(peptideIndex1, linkedModification.IndexAA),
+                Tuple.Create(peptideIndex2, linkedModification.ExplicitMod.LinkedPeptide.IndexAa)
+            }.ToLookup(tuple => tuple.Item1, tuple => tuple.Item2);
+            var peptidePositions = new List<IEnumerable<int>>();
+            for (int i = 0; i < totalPeptideCount; i++)
+            {
+                var positions = indexLookup[i].Select(aaIndex=>aaIndex+1).ToList();
+                positions.Sort();
+                peptidePositions.Add(positions);
+            }
+            return new CrosslinkLibraryKey.Crosslink(strMod.Substring(1,strMod.Length - 2), peptidePositions);
+        }
 
-            var indexes = new List<string>(totalPeptideCount);
-            indexes.AddRange(Enumerable.Repeat(@"*", Math.Min(peptideIndex1, peptideIndex2)));
-            if (peptideIndex1 == peptideIndex2)
+        private int CompareCrosslinks(CrosslinkLibraryKey.Crosslink crosslink1, CrosslinkLibraryKey.Crosslink crosslink2)
+        {
+            int result;
+            var peptideIndexes1 = crosslink1.PeptideIndexesWithLinks.ToList();
+            var peptideIndexes2 = crosslink2.PeptideIndexesWithLinks.ToList();
+            for (int i = 0; i < Math.Min(peptideIndexes1.Count, peptideIndexes2.Count); i++)
             {
-                indexes.Add((linkedModification.IndexAA + 1) + @"-" + (linkedModification.ExplicitMod.LinkedPeptide.IndexAa + 1));
-            }
-            else
-            {
-                var parts = new List<string>();
-                parts.Add((linkedModification.IndexAA + 1).ToString());
-                parts.AddRange(Enumerable.Repeat(@"*", Math.Abs(peptideIndex2 - peptideIndex1) - 1));
-                parts.Add((linkedModification.ExplicitMod.LinkedPeptide.IndexAa + 1).ToString());
-                if (peptideIndex1 > peptideIndex2)
+                result = peptideIndexes1[i].CompareTo(peptideIndexes2[i]);
+                if (result != 0)
                 {
-                    parts.Reverse();
+                    return result;
                 }
-                indexes.AddRange(parts);
+
+                int peptideIndex = peptideIndexes1[i];
+                result = crosslink1.Positions[peptideIndex].SequenceCompareTo(crosslink2.Positions[peptideIndex]);
+                if (result != 0)
+                {
+                    return result;
+                }
             }
-           
-            indexes.AddRange(Enumerable.Repeat(@"*", totalPeptideCount - Math.Max(peptideIndex1, peptideIndex2) - 1));
-            return strMod.Substring(0, strMod.Length - 1) + @"@" + string.Join(@",", indexes) +
-                   strMod.Substring(strMod.Length - 1);
+
+            result = peptideIndexes1.SequenceCompareTo(peptideIndexes2);
+            if (result != 0)
+            {
+                return result;
+            }
+            return StringComparer.Ordinal.Compare(crosslink1.Name, crosslink2.Name);
         }
 
         public IEnumerable<Modification> GetModifications()

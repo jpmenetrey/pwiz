@@ -402,7 +402,7 @@ namespace pwiz.SkylineTest
                 IsotopeLabelType.light);
             string modifiedSequenceText = modifiedSequence.FullNames;
             Assert.AreEqual(
-                "KNICKKNACK-KAFFEEKLATSCH-KINNIKINNICK-[DSS@1,1,*][DSS@5,7,*][disulfide@*,11,11][DSS@6,*,1][DSS@*,*,6-12][disulfide@4-9,*,*]",
+                "KNICKKNACK-KAFFEEKLATSCH-KINNIKINNICK-[DSS@1,1,*][disulfide@4-9,*,*][DSS@5,7,*][DSS@6,*,1][disulfide@*,11,11][DSS@*,*,6-12]",
                 modifiedSequenceText);
         }
     }
