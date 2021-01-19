@@ -323,7 +323,7 @@ namespace pwiz.SkylineTest
 
             var transitionGroup = new TransitionGroup(peptide, Adduct.SINGLY_PROTONATED, IsotopeLabelType.light);
             var crosslinkerDef = new StaticMod("dss", null, null, "C8H10O2");
-            var linkedPeptide = new LinkedPeptide(null, 5, null);
+            var linkedPeptide = new LinkedPeptide(ModificationSitePath.ROOT, 5);
             var crosslinkMod = new ExplicitMod(2, crosslinkerDef).ChangeLinkedPeptide(linkedPeptide);
             var explicitModsWithCrosslink = new ExplicitMods(peptide, new[] { crosslinkMod }, new TypedExplicitModifications[0]);
             var transitionGroupDocNode = new TransitionGroupDocNode(transitionGroup, Annotations.EMPTY, srmSettings,

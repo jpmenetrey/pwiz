@@ -38,7 +38,7 @@ namespace pwiz.Skyline.Model.Crosslinking
         /// </summary>
         public LinkedPeptide(Peptide peptide, int indexAa, ExplicitMods explicitMods)
         {
-            Peptide = peptide;
+            Peptide = peptide ?? throw new ArgumentNullException(nameof(peptide));
             IndexAa = indexAa;
             ExplicitMods = explicitMods;
         }

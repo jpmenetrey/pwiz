@@ -1346,6 +1346,10 @@ namespace pwiz.Skyline.Model.DocSettings
 
         private ExplicitMods ResolveLooplinks(ModificationSitePath location)
         {
+            if (StaticModifications == null)
+            {
+                return this;
+            }
             var newStaticModifications = new List<ExplicitMod>();
             foreach (var explicitMod in StaticModifications)
             {

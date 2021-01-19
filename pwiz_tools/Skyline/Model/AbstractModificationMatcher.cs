@@ -653,7 +653,8 @@ namespace pwiz.Skyline.Model
                 return null;
             }
 
-            var crosslinks = MakeCrosslinkMods(crosslinkLibraryKey, ImmutableList.Singleton(0));
+            var indexToSitePath = new Dictionary<int, ModificationSitePath> {{0, ModificationSitePath.ROOT}};
+            var crosslinks = MakeCrosslinkMods(crosslinkLibraryKey, indexToSitePath, 0);
             if (crosslinks == null)
             {
                 return null;
@@ -680,9 +681,8 @@ namespace pwiz.Skyline.Model
             return crosslinkedPeptide;
         }
 
-        private LinkedPeptide MakeLinkedPeptide(CrosslinkLibraryKey crosslinkLibraryKey, CrosslinkLibraryKey.Crosslink crosslink, IList<int> peptideIndexes)
+        private LinkedPeptide MakeLinkedPeptide(CrosslinkLibraryKey crosslinkLibraryKey, CrosslinkLibraryKey.Crosslink crosslink, Dictionary<int, ModificationSitePath> indexToSitePath, int peptideIndex)
         {
-            int peptideIndex = peptideIndexes[peptideIndexes.Count - 1];
             var peptideLibraryKey = crosslinkLibraryKey.PeptideLibraryKeys[peptideIndex];
             var indexAa = crosslink.AaIndexes[peptideIndex].First();
             var peptide = MakePeptideDocNode(peptideLibraryKey);
@@ -691,7 +691,7 @@ namespace pwiz.Skyline.Model
                 return null;
             }
 
-            var crosslinks = MakeCrosslinkMods(crosslinkLibraryKey, peptideIndexes);
+            var crosslinks = MakeCrosslinkMods(crosslinkLibraryKey, indexToSitePath, peptideIndex);
             if (crosslinks.Any())
             {
                 var explicitMods = new List<ExplicitMod>();
@@ -706,9 +706,10 @@ namespace pwiz.Skyline.Model
             return new LinkedPeptide(peptide.Peptide, indexAa, peptide.ExplicitMods);
         }
 
-        public IList<ExplicitMod> MakeCrosslinkMods(CrosslinkLibraryKey crosslinkLibraryKey, IList<int> peptideIndexes)
+        public IList<ExplicitMod> MakeCrosslinkMods(CrosslinkLibraryKey crosslinkLibraryKey, Dictionary<int, ModificationSitePath> indexToSitePath, int thisPeptideIndex)
         {
-            int thisPeptideIndex = peptideIndexes[peptideIndexes.Count - 1];
+            ModificationSitePath thisSitePath = indexToSitePath[thisPeptideIndex];
+            var completedIndexes = indexToSitePath.Keys.ToHashSet();
             string thisPeptideSequence = crosslinkLibraryKey.PeptideLibraryKeys[thisPeptideIndex].UnmodifiedSequence;
             List<ExplicitMod> explicitMods = new List<ExplicitMod>();
             // Deal with any looplinks
@@ -731,12 +732,12 @@ namespace pwiz.Skyline.Model
                 }
 
                 explicitMods.Add(new ExplicitMod(aaIndexes[0], crosslinkMod)
-                    .ChangeLinkedPeptide(new LinkedPeptide(null, aaIndexes[1], null)));
+                    .ChangeLinkedPeptide(new LinkedPeptide(thisSitePath, aaIndexes[1])));
             }
 
             for (int iPeptide = 0; iPeptide < crosslinkLibraryKey.PeptideLibraryKeys.Count; iPeptide++)
             {
-                if (peptideIndexes.Contains(iPeptide))
+                if (completedIndexes.Contains(iPeptide))
                 {
                     continue;
                 }
@@ -748,17 +749,30 @@ namespace pwiz.Skyline.Model
                         continue;
                     }
 
+                    var thatAaIndex = crosslink.AaIndexes[iPeptide].First();
                     var crosslinkMod = FindCrosslinkMod(crosslink.Name,
                         thisPeptideSequence,
                         crosslink.AaIndexes[thisPeptideIndex].First(),
                         crosslinkLibraryKey.PeptideLibraryKeys[iPeptide].UnmodifiedSequence,
-                        crosslink.AaIndexes[iPeptide].First());
+                        thatAaIndex);
                     if (crosslinkMod == null)
                     {
                         return null;
                     }
-                    var linkedPeptide = MakeLinkedPeptide(crosslinkLibraryKey, crosslink,
-                        ImmutableList.ValueOf(peptideIndexes.Append(iPeptide)));
+
+                    LinkedPeptide linkedPeptide;
+                    ModificationSitePath modificationSitePath;
+                    if (indexToSitePath.TryGetValue(iPeptide, out modificationSitePath))
+                    {
+                        linkedPeptide = new LinkedPeptide(modificationSitePath, crosslink.AaIndexes[iPeptide].First());
+                    }
+                    else
+                    {
+                        var newSitePath = thisSitePath.Append(new ModificationSite(thatAaIndex, crosslinkMod.Name));
+                        indexToSitePath.Add(iPeptide, newSitePath);
+                        linkedPeptide = MakeLinkedPeptide(crosslinkLibraryKey, crosslink,
+                            indexToSitePath, iPeptide);
+                    }
                     var explicitMod = new ExplicitMod(crosslink.AaIndexes[thisPeptideIndex].First(), crosslinkMod)
                         .ChangeLinkedPeptide(linkedPeptide);
                     explicitMods.Add(explicitMod);
