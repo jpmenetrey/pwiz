@@ -843,7 +843,7 @@ namespace pwiz.Skyline.Model
             MoleculeMassOffset moleculeMassOffset = new MoleculeMassOffset(Molecule.Parse(massCalc.GetMolecularFormula(Peptide.Sequence)), 0, 0);
             if (mods != null)
             {
-                foreach (var crosslink in mods.Crosslinks)
+                foreach (var crosslink in mods.LinkedCrosslinks)
                 {
                     moleculeMassOffset = moleculeMassOffset.Plus(crosslink.Value.GetNeutralFormula(settings, LabelType));
                 }

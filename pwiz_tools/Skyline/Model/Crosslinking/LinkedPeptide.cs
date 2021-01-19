@@ -201,7 +201,7 @@ namespace pwiz.Skyline.Model.Crosslinking
             var result = FilterImpossibleCleavages(mods, startingFragmentIons);
             if (mods != null)
             {
-                foreach (var crosslinkMod in mods.LinkedCrossslinks)
+                foreach (var crosslinkMod in mods.LinkedCrosslinks)
                 {
                     result = crosslinkMod.Value.PermuteFragmentIons(settings, maxFragmentationCount, useFilter,
                         crosslinkMod.Key, result);

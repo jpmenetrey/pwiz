@@ -188,7 +188,7 @@ namespace pwiz.Skyline.Model.Crosslinking
             var moleculeMassOffset = new MoleculeMassOffset(GetSimplePrecursorMolecule().PrecursorFormula);
             if (ExplicitMods != null)
             {
-                foreach (var child in ExplicitMods.LinkedCrossslinks)
+                foreach (var child in ExplicitMods.LinkedCrosslinks)
                 {
                     moleculeMassOffset = moleculeMassOffset.Plus(GetChildBuilder(child.Key).GetPrecursorFormula());
                 }

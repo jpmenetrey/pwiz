@@ -1040,7 +1040,7 @@ namespace pwiz.Skyline.Model.DocSettings
             get; private set;
         }
 
-        public IEnumerable<KeyValuePair<ModificationSite, LinkedPeptide>> LinkedCrossslinks
+        public IEnumerable<KeyValuePair<ModificationSite, LinkedPeptide>> LinkedCrosslinks
         {
             get { return Crosslinks.Where(entry => entry.Value.Peptide != null); }
         }
@@ -1084,7 +1084,7 @@ namespace pwiz.Skyline.Model.DocSettings
         public IEnumerable<ExplicitMod> RecursivelyGetModifications(IsotopeLabelType labelType)
         {
             IEnumerable<ExplicitMod> result = GetModifications(labelType) ?? Enumerable.Empty<ExplicitMod>();
-            foreach (var entry in LinkedCrossslinks)
+            foreach (var entry in LinkedCrosslinks)
             {
                 var explicitMods = entry.Value.ExplicitMods;
                 if (explicitMods != null)
@@ -1098,7 +1098,7 @@ namespace pwiz.Skyline.Model.DocSettings
 
         public IEnumerable<ModificationSitePath> EnumerateCrosslinkedPeptideLocations()
         {
-            foreach (var entry in LinkedCrossslinks)
+            foreach (var entry in LinkedCrosslinks)
             {
                 yield return ModificationSitePath.Singleton(entry.Key);
                 if (entry.Value.ExplicitMods != null)

@@ -301,7 +301,7 @@ namespace pwiz.Skyline.EditUI
             yield return ModificationSitePath.ROOT;
             if (peptideDocNode.ExplicitMods != null)
             {
-                queue.AddRange(peptideDocNode.ExplicitMods.LinkedCrossslinks.Select(entry=>Tuple.Create(ModificationSitePath.Singleton(entry.Key), entry.Value)));
+                queue.AddRange(peptideDocNode.ExplicitMods.LinkedCrosslinks.Select(entry=>Tuple.Create(ModificationSitePath.Singleton(entry.Key), entry.Value)));
             }
 
             while (queue.Count > 0)
@@ -312,7 +312,7 @@ namespace pwiz.Skyline.EditUI
                 yield return location;
                 if (linkedPeptide.ExplicitMods != null)
                 {
-                    queue.AddRange(linkedPeptide.ExplicitMods.LinkedCrossslinks.Select(entry =>
+                    queue.AddRange(linkedPeptide.ExplicitMods.LinkedCrosslinks.Select(entry =>
                         Tuple.Create(location.Append(entry.Key), entry.Value)));
                 }
             }

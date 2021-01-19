@@ -749,10 +749,11 @@ namespace pwiz.Skyline.Model
                         continue;
                     }
 
+                    var thisAaIndex = crosslink.AaIndexes[thisPeptideIndex].First();
                     var thatAaIndex = crosslink.AaIndexes[iPeptide].First();
                     var crosslinkMod = FindCrosslinkMod(crosslink.Name,
                         thisPeptideSequence,
-                        crosslink.AaIndexes[thisPeptideIndex].First(),
+                        thisAaIndex,
                         crosslinkLibraryKey.PeptideLibraryKeys[iPeptide].UnmodifiedSequence,
                         thatAaIndex);
                     if (crosslinkMod == null)
@@ -768,7 +769,7 @@ namespace pwiz.Skyline.Model
                     }
                     else
                     {
-                        var newSitePath = thisSitePath.Append(new ModificationSite(thatAaIndex, crosslinkMod.Name));
+                        var newSitePath = thisSitePath.Append(new ModificationSite(thisAaIndex, crosslinkMod.Name));
                         indexToSitePath.Add(iPeptide, newSitePath);
                         linkedPeptide = MakeLinkedPeptide(crosslinkLibraryKey, crosslink,
                             indexToSitePath, iPeptide);
